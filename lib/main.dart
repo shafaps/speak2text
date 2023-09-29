@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 void main() {
-  runApp(NoteApp());
+  runApp(NoteApp(isDarkMode: true));
 }
 
 class NoteApp extends StatelessWidget {
+  final bool isDarkMode;
+
+  NoteApp({required this.isDarkMode});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: NoteList(),
-      theme: ThemeData(
-        primaryColor: Colors.blue,
-        fontFamily: 'Roboto',
-        colorScheme: ColorScheme.fromSwatch().copyWith(
-          secondary: const Color.fromARGB(255, 0, 21, 255),
-        ),
-      ),
+      theme: isDarkMode ? ThemeData.dark() : ThemeData.light(),
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
     );
   }
 }
@@ -32,34 +37,35 @@ class _NoteListState extends State<NoteList> {
   String _recordedText = '';
   List<Note> notes = [];
 
-    // Deklarasikan contentController di sini
+  // Deklarasikan contentController di sini
   TextEditingController contentController = TextEditingController();
 
-void _startListening() async {
-  bool available = await _speech.initialize(
-    onStatus: (status) {
-      // Handle status changes (optional)
-      print("Speech recognition status: $status");
-    },
-  );
+  DateTime _currentDateTime = DateTime.now();
 
-  if (available) {
-    setState(() {
-      _speech.listen(
-        onResult: (result) {
-          setState(() {
-            _recordedText = result.recognizedWords;
-            // Perbarui teks pada controller contentController
-            contentController.text = _recordedText;
-          });
-        },
-      );
-    });
-  } else {
-    print('Permission denied or no available speech recognition modules.');
+  void _startListening() async {
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        // Handle status changes (optional)
+        print("Speech recognition status: $status");
+      },
+    );
+
+    if (available) {
+      setState(() {
+        _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _recordedText = result.recognizedWords;
+              // Perbarui teks pada controller contentController
+              contentController.text = _recordedText;
+            });
+          },
+        );
+      });
+    } else {
+      print('Permission denied or no available speech recognition modules.');
+    }
   }
-}
-
 
   void _stopListening() {
     if (_speech.isListening) {
@@ -81,17 +87,29 @@ void _startListening() async {
       body: ListView.builder(
         itemCount: notes.length,
         itemBuilder: (context, index) {
+          final note = notes[index];
           return Card(
             elevation: 3,
             margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: ListTile(
               title: Text(
-                notes[index].title,
+                note.title,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              subtitle: Text(notes[index].content),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(note.content),
+                  Text(
+                    '${DateFormat('yyyy-MM-dd HH:mm').format(note.dateTime)}',
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
               trailing: IconButton(
                 icon: Icon(Icons.delete),
                 onPressed: () {
@@ -108,15 +126,15 @@ void _startListening() async {
         },
       ),
       floatingActionButton: Align(
-        alignment: Alignment.bottomCenter,
+        alignment: Alignment.bottomRight,
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
+          padding: const EdgeInsets.only(bottom: 16.0, right: 16.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
               FloatingActionButton(
                 onPressed: _addNote,
-                child: Icon(Icons.keyboard),
+                child: Icon(Icons.add),
               ),
               SizedBox(width: 16),
             ],
@@ -126,7 +144,7 @@ void _startListening() async {
     );
   }
 
-void _addNote() {
+  void _addNote() {
     showDialog(
       context: context,
       builder: (context) {
@@ -134,69 +152,97 @@ void _addNote() {
 
         // Fungsi ini akan dipanggil ketika tombol "Simpan" ditekan pada dialog "Tambah Catatan"
         void saveNote() {
-          newNote.title = contentController.text;
-          newNote.content = _recordedText; // Menggunakan teks yang diakui dari pengenalan suara
-          setState(() {
-            notes.add(newNote);
-            _recordedText = ''; // Hapus teks yang sudah disimpan
-          });
-          Navigator.of(context).pop();
+          if (newNote.title.isNotEmpty) {
+            newNote.content = _recordedText;
+            newNote.dateTime =
+                DateTime.now(); // Setel waktu saat catatan dibuat
+            setState(() {
+              notes.add(newNote);
+              _recordedText = '';
+              // Urutkan catatan berdasarkan waktu setelah menambahkannya
+              notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+            });
+            Navigator.of(context).pop();
+          } else {
+            // Tampilkan pesan kesalahan jika judul catatan kosong
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: Text('Error'),
+                  content: Text('Judul Catatan tidak boleh kosong.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Text('OK'),
+                    ),
+                  ],
+                );
+              },
+            );
+          }
         }
 
-  return AlertDialog(
-    title: Text('Tambah Catatan'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TextFormField(
-          onChanged: (value) {
-            newNote.title = value;
-          },
-          decoration: InputDecoration(
-            labelText: 'Judul Catatan',
-          ),
-        ),
-        SizedBox(height: 20), // Tambahkan SizedBox untuk pemisahan
-        Divider(height: 1, color: Colors.black), // Atau gunakan Divider untuk pemisahan
-        SizedBox(height: 20), // Tambahkan SizedBox lagi untuk jarak
-        TextFormField(
-          controller: contentController,
-          onChanged: (value) {
-            // Do nothing here, as we'll update it with speech recognition result
-          },
-          maxLines: 5,
-          decoration: InputDecoration(
-            labelText: 'Isi Catatan',
-          ),
-        ),
-SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FloatingActionButton(
-              onPressed: () {
-                if (_speech.isListening) {
-                  _stopListening();
-                } else {
-                  _startListening();
-                }
-              },
-              child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
-              backgroundColor: _speech.isListening ? Colors.red : Colors.blue,
+        return AlertDialog(
+          title: Text('Tambah Catatan'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  onChanged: (value) {
+                    newNote.title = value;
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Judul Catatan',
+                  ),
+                ),
+                SizedBox(
+                  height: 20,
+                ), // Hanya satu elemen SizedBox diperlukan di sini
+                TextFormField(
+                  controller: contentController,
+                  onChanged: (value) {
+                    // Do nothing here, as we'll update it with speech recognition result
+                  },
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    labelText: 'Isi Catatan',
+                  ),
+                ),
+                SizedBox(height: 20), // Tambahkan SizedBox untuk pemisahan
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FloatingActionButton(
+                      onPressed: () {
+                        if (_speech.isListening) {
+                          _stopListening();
+                        } else {
+                          _startListening();
+                        }
+                      },
+                      child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
+                      backgroundColor:
+                          _speech.isListening ? Colors.red : Colors.blue,
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
-      ],
-    ),
-    actions: [
-      TextButton(
-        onPressed: () {
-          Navigator.of(context).pop();
-        },
-        child: Text('Batal'),
-      ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Batal'),
+            ),
             ElevatedButton(
-              onPressed: saveNote, // Panggil fungsi saveNote ketika tombol "Simpan" ditekan
+              onPressed:
+                  saveNote, // Panggil fungsi saveNote ketika tombol "Simpan" ditekan
               child: Text('Simpan'),
             ),
           ],
@@ -205,39 +251,121 @@ SizedBox(height: 20),
     );
   }
 
-
-
   void _editNote(int index) {
     showDialog(
       context: context,
       builder: (context) {
         final editedNote = notes[index];
+        final TextEditingController titleController =
+            TextEditingController(text: editedNote.title);
+        final TextEditingController contentController =
+            TextEditingController(text: editedNote.content);
+
+        void _startListeningForEdit() async {
+          bool available = await _speech.initialize(
+            onStatus: (status) {
+              print("Speech recognition status: $status");
+            },
+          );
+
+          if (available) {
+            setState(() {
+              _speech.listen(
+                onResult: (result) {
+                  setState(() {
+                    _recordedText = result.recognizedWords;
+                    contentController.text = _recordedText;
+                  });
+                },
+              );
+            });
+          } else {
+            print(
+                'Permission denied or no available speech recognition modules.');
+          }
+        }
+
+        void _stopListeningForEdit() {
+          if (_speech.isListening) {
+            _speech.stop();
+          }
+        }
+
+        void saveEditedNote() {
+          if (titleController.text.isNotEmpty) {
+            editedNote.title = titleController.text;
+            editedNote.content = contentController.text;
+            editedNote.dateTime =
+                DateTime.now(); // Setel waktu saat catatan diedit
+            setState(() {});
+            Navigator.of(context).pop();
+          } else {
+            showDialog(
+              context: context,
+              builder: (context) {
+                return AlertDialog(
+                  title: Text('Error'),
+                  content: Text('Judul Catatan tidak boleh kosong.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Text('OK'),
+                    ),
+                  ],
+                );
+              },
+            );
+          }
+        }
+
         return AlertDialog(
           title: const Text('Edit Catatan'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                onChanged: (value) {
-                  editedNote.title = value;
-                },
-                controller: TextEditingController(text: editedNote.title),
-                decoration: InputDecoration(
-                  labelText: 'Judul Catatan',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  onChanged: (value) {
+                    editedNote.title = value;
+                  },
+                  controller: titleController,
+                  decoration: InputDecoration(
+                    labelText: 'Judul Catatan',
+                  ),
                 ),
-              ),
-              SizedBox(height: 10),
-              TextFormField(
-                onChanged: (value) {
-                  editedNote.content = value;
-                },
-                controller: TextEditingController(text: editedNote.content),
-                maxLines: 5,
-                decoration: InputDecoration(
-                  labelText: 'Isi Catatan',
+                SizedBox(height: 10),
+                TextFormField(
+                  onChanged: (value) {
+                    editedNote.content = value;
+                  },
+                  controller: contentController,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    labelText: 'Isi Catatan',
+                  ),
                 ),
-              ),
-            ],
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FloatingActionButton(
+                      onPressed: () {
+                        if (_speech.isListening) {
+                          _stopListeningForEdit();
+                        } else {
+                          _startListeningForEdit();
+                        }
+                      },
+                      child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
+                      backgroundColor:
+                          _speech.isListening ? Colors.red : Colors.blue,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -246,11 +374,8 @@ SizedBox(height: 20),
               },
               child: const Text('Batal'),
             ),
-            TextButton(
-              onPressed: () {
-                setState(() {});
-                Navigator.of(context).pop();
-              },
+            ElevatedButton(
+              onPressed: saveEditedNote,
               child: const Text('Simpan'),
             ),
           ],
@@ -263,6 +388,5 @@ SizedBox(height: 20),
 class Note {
   String title = '';
   String content = '';
+  late DateTime dateTime;
 }
-
-
