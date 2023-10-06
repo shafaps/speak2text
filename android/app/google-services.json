@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1032743523064",
+    "project_id": "speaktotext-ffa7f",
+    "storage_bucket": "speaktotext-ffa7f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1032743523064:android:2d3234e01810658507a10d",
+        "android_client_info": {
+          "package_name": "com.example.speak2text"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0mL_4hm8SPVHzcBwTbbgqCKeyTZken5w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

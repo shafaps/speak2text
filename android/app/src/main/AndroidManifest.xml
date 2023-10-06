@@ -3,6 +3,8 @@
 <!-- Optional, you'll have to check this permission by yourself. -->
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.BLUETOOTH"/>
+<uses-permission android:name="android.permission.INTERNET" />
+
 
     <application
         android:label="speak2text"

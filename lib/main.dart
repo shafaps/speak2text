@@ -1,8 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:speak2text/firebase_options.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(NoteApp(isDarkMode: true));
 }
 
@@ -71,6 +78,50 @@ class _NoteListState extends State<NoteList> {
     if (_speech.isListening) {
       _speech.stop();
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Panggil fungsi ini ketika widget pertama kali dibuat
+    loadNotesFromFirestore();
+  }
+
+  Future<void> saveNoteToFirestore(Note note) async {
+    try {
+      await FirebaseFirestore.instance.collection('notes').add({
+        'title': note.title,
+        'content': note.content,
+        'dateTime': note.dateTime,
+      });
+      print('Catatan berhasil disimpan ke Firestore');
+    } catch (error) {
+      print('Gagal menyimpan catatan ke Firestore: $error');
+    }
+  }
+
+  void loadNotesFromFirestore() {
+    FirebaseFirestore.instance.collection('notes').get().then((querySnapshot) {
+      final List<Note> loadedNotes = [];
+      querySnapshot.docs.forEach((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final dateTime = data['dateTime'];
+
+        if (dateTime != null) {
+          loadedNotes.add(Note(
+            title: data['title'] ?? '',
+            content: data['content'] ?? '',
+            dateTime: (dateTime as Timestamp).toDate(),
+          ));
+        }
+      });
+
+      setState(() {
+        notes = loadedNotes;
+      });
+    }).catchError((error) {
+      print('Gagal mengambil catatan dari Firestore: $error');
+    });
   }
 
   @override
@@ -148,18 +199,23 @@ class _NoteListState extends State<NoteList> {
     showDialog(
       context: context,
       builder: (context) {
-        final newNote = Note();
-
+        final newNote = Note(
+          title: '', // Initialize with empty title
+          content: _recordedText, // Initialize with recorded text
+          dateTime: DateTime.now(), // Set current date and time
+        );
         // Fungsi ini akan dipanggil ketika tombol "Simpan" ditekan pada dialog "Tambah Catatan"
         void saveNote() {
           if (newNote.title.isNotEmpty) {
             newNote.content = _recordedText;
-            newNote.dateTime =
-                DateTime.now(); // Setel waktu saat catatan dibuat
+            newNote.dateTime = DateTime.now();
+
+            // Simpan catatan ke Firestore
+            saveNoteToFirestore(newNote);
+
             setState(() {
               notes.add(newNote);
               _recordedText = '';
-              // Urutkan catatan berdasarkan waktu setelah menambahkannya
               notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
             });
             Navigator.of(context).pop();
@@ -386,7 +442,13 @@ class _NoteListState extends State<NoteList> {
 }
 
 class Note {
-  String title = '';
-  String content = '';
-  late DateTime dateTime;
+  String title;
+  String content;
+  DateTime dateTime;
+
+  Note({
+    required this.title,
+    required this.content,
+    required this.dateTime,
+  });
 }
