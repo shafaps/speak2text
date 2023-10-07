@@ -1,15 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:speak2text/firebase_options.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+void main() {
   runApp(NoteApp(isDarkMode: true));
 }
 
@@ -80,48 +76,32 @@ class _NoteListState extends State<NoteList> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    // Panggil fungsi ini ketika widget pertama kali dibuat
-    loadNotesFromFirestore();
-  }
+  Future<void> loadNotesFromLocal() async {
+    final sharedPreferences = await SharedPreferences.getInstance();
+    final notesData = sharedPreferences.getString('notes');
 
-  Future<void> saveNoteToFirestore(Note note) async {
-    try {
-      await FirebaseFirestore.instance.collection('notes').add({
-        'title': note.title,
-        'content': note.content,
-        'dateTime': note.dateTime,
-      });
-      print('Catatan berhasil disimpan ke Firestore');
-    } catch (error) {
-      print('Gagal menyimpan catatan ke Firestore: $error');
-    }
-  }
+    if (notesData != null) {
+      final notesList = jsonDecode(notesData) as List<dynamic>;
+      final loadedNotes = <Note>[];
 
-  void loadNotesFromFirestore() {
-    FirebaseFirestore.instance.collection('notes').get().then((querySnapshot) {
-      final List<Note> loadedNotes = [];
-      querySnapshot.docs.forEach((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final dateTime = data['dateTime'];
-
-        if (dateTime != null) {
-          loadedNotes.add(Note(
-            title: data['title'] ?? '',
-            content: data['content'] ?? '',
-            dateTime: (dateTime as Timestamp).toDate(),
-          ));
-        }
-      });
+      for (final noteData in notesList) {
+        loadedNotes.add(Note(
+          title: noteData['title'] ?? '',
+          content: noteData['content'] ?? '',
+          dateTime: DateTime.parse(noteData['dateTime'] ?? ''),
+        ));
+      }
 
       setState(() {
         notes = loadedNotes;
       });
-    }).catchError((error) {
-      print('Gagal mengambil catatan dari Firestore: $error');
-    });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadNotesFromLocal(); // Panggil metode ini saat widget diinisialisasi
   }
 
   @override
@@ -200,24 +180,23 @@ class _NoteListState extends State<NoteList> {
       context: context,
       builder: (context) {
         final newNote = Note(
-          title: '', // Initialize with empty title
-          content: _recordedText, // Initialize with recorded text
-          dateTime: DateTime.now(), // Set current date and time
+          title: 'Judul Catatan', // Sesuaikan dengan judul yang sesuai
+          content: _recordedText,
+          dateTime: DateTime.now(),
         );
         // Fungsi ini akan dipanggil ketika tombol "Simpan" ditekan pada dialog "Tambah Catatan"
-        void saveNote() {
+        void saveNote() async {
           if (newNote.title.isNotEmpty) {
             newNote.content = _recordedText;
             newNote.dateTime = DateTime.now();
-
-            // Simpan catatan ke Firestore
-            saveNoteToFirestore(newNote);
-
             setState(() {
               notes.add(newNote);
               _recordedText = '';
               notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
             });
+
+            // Simpan catatan baru ke Shared Preferences
+            await saveNotesToLocal();
             Navigator.of(context).pop();
           } else {
             // Tampilkan pesan kesalahan jika judul catatan kosong
@@ -305,6 +284,18 @@ class _NoteListState extends State<NoteList> {
         );
       },
     );
+  }
+
+  Future<void> saveNotesToLocal() async {
+    final sharedPreferences = await SharedPreferences.getInstance();
+    final notesList = <Map<String, dynamic>>[];
+
+    for (final note in notes) {
+      notesList.add(note.toMap());
+    }
+
+    // Simpan list catatan sebagai string JSON ke Shared Preferences
+    await sharedPreferences.setString('notes', jsonEncode(notesList));
   }
 
   void _editNote(int index) {
@@ -451,4 +442,22 @@ class Note {
     required this.content,
     required this.dateTime,
   });
+
+  // Tambahkan metode ini untuk mengkonversi objek Note menjadi Map
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'content': content,
+      'dateTime': dateTime.toIso8601String(),
+    };
+  }
+
+  // Tambahkan metode ini untuk membuat objek Note dari Map
+  factory Note.fromMap(Map<String, dynamic> map) {
+    return Note(
+      title: map['title'],
+      content: map['content'],
+      dateTime: DateTime.parse(map['dateTime']),
+    );
+  }
 }
