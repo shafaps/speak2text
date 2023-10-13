@@ -41,8 +41,16 @@ class _NoteListState extends State<NoteList> {
   List<Note> notes = [];
 
   TextEditingController contentController = TextEditingController();
+  TextEditingController titleController =
+      TextEditingController(); // Tambahkan controller judul
 
   DateTime _currentDateTime = DateTime.now();
+
+  Note newNote = Note(
+    title: 'Judul Catatan',
+    content: '',
+    dateTime: DateTime.now(),
+  ); // Deklarasi variabel newNote
 
   void _startListening() async {
     bool available = await _speech.initialize(
@@ -68,6 +76,35 @@ class _NoteListState extends State<NoteList> {
   }
 
   void _stopListening() {
+    if (_speech.isListening) {
+      _speech.stop();
+    }
+  }
+
+  void _startListeningForTitle() async {
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        print("Speech recognition status: $status");
+      },
+    );
+
+    if (available) {
+      setState(() {
+        _speech.listen(
+          onResult: (result) {
+            setState(() {
+              titleController.text = result
+                  .recognizedWords; // Isi judul dengan teks yang terdeteksi
+            });
+          },
+        );
+      });
+    } else {
+      print('Permission denied or no available speech recognition modules.');
+    }
+  }
+
+  void _stopListeningForTitle() {
     if (_speech.isListening) {
       _speech.stop();
     }
@@ -164,8 +201,7 @@ class _NoteListState extends State<NoteList> {
         trailing: IconButton(
           icon: Icon(Icons.delete),
           onPressed: () {
-            _deleteNote(
-                index); // Panggil fungsi _deleteNote saat catatan dihapus
+            _deleteNote(index);
           },
         ),
         onTap: () {
@@ -179,12 +215,6 @@ class _NoteListState extends State<NoteList> {
     showDialog(
       context: context,
       builder: (context) {
-        final newNote = Note(
-          title: 'Judul Catatan',
-          content: _recordedText,
-          dateTime: DateTime.now(),
-        );
-
         void saveNote() async {
           if (newNote.title.isNotEmpty) {
             newNote.content = _recordedText;
@@ -218,66 +248,17 @@ class _NoteListState extends State<NoteList> {
           }
         }
 
-        void _startListeningForTitle() async {
-          bool available = await _speech.initialize(
-            onStatus: (status) {
-              print("Speech recognition status: $status");
-            },
-          );
-
-          if (available) {
-            setState(() {
-              _speech.listen(
-                onResult: (result) {
-                  setState(() {
-                    newNote.title = result.recognizedWords;
-                  });
-                },
-              );
-            });
-          } else {
-            print(
-                'Permission denied or no available speech recognition modules.');
-          }
-        }
-
-        void _stopListeningForTitle() {
-          if (_speech.isListening) {
-            _speech.stop();
-          }
-        }
-
         return AlertDialog(
           title: Text('Tambah Catatan'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FloatingActionButton(
-                      onPressed: () {
-                        if (_speech.isListening) {
-                          _stopListeningForTitle();
-                        } else {
-                          _startListeningForTitle();
-                        }
-                      },
-                      child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
-                      backgroundColor:
-                          _speech.isListening ? Colors.red : Colors.blue,
-                    ),
-                  ],
-                ),
-                SizedBox(
-                  height: 20,
-                ),
                 TextFormField(
                   onChanged: (value) {
                     newNote.title = value;
                   },
-                  initialValue: newNote.title,
+                  controller: titleController, // Gunakan controller untuk judul
                   decoration: InputDecoration(
                     labelText: 'Judul Catatan',
                   ),
@@ -306,6 +287,22 @@ class _NoteListState extends State<NoteList> {
                         }
                       },
                       child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
+                      backgroundColor:
+                          _speech.isListening ? Colors.red : Colors.blue,
+                    ),
+                    SizedBox(width: 16),
+                    FloatingActionButton(
+                      onPressed: () {
+                        if (_speech.isListening) {
+                          _stopListeningForTitle();
+                        } else {
+                          _startListeningForTitle();
+                        }
+                      },
+                      child: Icon(
+                        _speech.isListening ? Icons.stop : Icons.mic,
+                        color: Colors.green, // Ganti warna ikon menjadi hijau
+                      ),
                       backgroundColor:
                           _speech.isListening ? Colors.red : Colors.blue,
                     ),
