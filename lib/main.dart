@@ -40,7 +40,6 @@ class _NoteListState extends State<NoteList> {
   String _recordedText = '';
   List<Note> notes = [];
 
-  // Deklarasikan contentController di sini
   TextEditingController contentController = TextEditingController();
 
   DateTime _currentDateTime = DateTime.now();
@@ -48,7 +47,6 @@ class _NoteListState extends State<NoteList> {
   void _startListening() async {
     bool available = await _speech.initialize(
       onStatus: (status) {
-        // Handle status changes (optional)
         print("Speech recognition status: $status");
       },
     );
@@ -59,7 +57,6 @@ class _NoteListState extends State<NoteList> {
           onResult: (result) {
             setState(() {
               _recordedText = result.recognizedWords;
-              // Perbarui teks pada controller contentController
               contentController.text = _recordedText;
             });
           },
@@ -101,7 +98,7 @@ class _NoteListState extends State<NoteList> {
   @override
   void initState() {
     super.initState();
-    loadNotesFromLocal(); // Panggil metode ini saat widget diinisialisasi
+    loadNotesFromLocal();
   }
 
   @override
@@ -118,42 +115,7 @@ class _NoteListState extends State<NoteList> {
       body: ListView.builder(
         itemCount: notes.length,
         itemBuilder: (context, index) {
-          final note = notes[index];
-          return Card(
-            elevation: 3,
-            margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            child: ListTile(
-              title: Text(
-                note.title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(note.content),
-                  Text(
-                    '${DateFormat('yyyy-MM-dd HH:mm').format(note.dateTime)}',
-                    style: TextStyle(
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-              trailing: IconButton(
-                icon: Icon(Icons.delete),
-                onPressed: () {
-                  setState(() {
-                    notes.removeAt(index);
-                  });
-                },
-              ),
-              onTap: () {
-                _editNote(index);
-              },
-            ),
-          );
+          return _buildNoteItem(index);
         },
       ),
       floatingActionButton: Align(
@@ -175,16 +137,54 @@ class _NoteListState extends State<NoteList> {
     );
   }
 
+  Widget _buildNoteItem(int index) {
+    final note = notes[index];
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      child: ListTile(
+        title: Text(
+          note.title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(note.content),
+            Text(
+              '${DateFormat('yyyy-MM-dd HH:mm').format(note.dateTime)}',
+              style: TextStyle(
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.delete),
+          onPressed: () {
+            _deleteNote(
+                index); // Panggil fungsi _deleteNote saat catatan dihapus
+          },
+        ),
+        onTap: () {
+          _editNote(index);
+        },
+      ),
+    );
+  }
+
   void _addNote() {
     showDialog(
       context: context,
       builder: (context) {
         final newNote = Note(
-          title: 'Judul Catatan', // Sesuaikan dengan judul yang sesuai
+          title: 'Judul Catatan',
           content: _recordedText,
           dateTime: DateTime.now(),
         );
-        // Fungsi ini akan dipanggil ketika tombol "Simpan" ditekan pada dialog "Tambah Catatan"
+
         void saveNote() async {
           if (newNote.title.isNotEmpty) {
             newNote.content = _recordedText;
@@ -195,11 +195,9 @@ class _NoteListState extends State<NoteList> {
               notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
             });
 
-            // Simpan catatan baru ke Shared Preferences
             await saveNotesToLocal();
             Navigator.of(context).pop();
           } else {
-            // Tampilkan pesan kesalahan jika judul catatan kosong
             showDialog(
               context: context,
               builder: (context) {
@@ -220,34 +218,82 @@ class _NoteListState extends State<NoteList> {
           }
         }
 
+        void _startListeningForTitle() async {
+          bool available = await _speech.initialize(
+            onStatus: (status) {
+              print("Speech recognition status: $status");
+            },
+          );
+
+          if (available) {
+            setState(() {
+              _speech.listen(
+                onResult: (result) {
+                  setState(() {
+                    newNote.title = result.recognizedWords;
+                  });
+                },
+              );
+            });
+          } else {
+            print(
+                'Permission denied or no available speech recognition modules.');
+          }
+        }
+
+        void _stopListeningForTitle() {
+          if (_speech.isListening) {
+            _speech.stop();
+          }
+        }
+
         return AlertDialog(
           title: Text('Tambah Catatan'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FloatingActionButton(
+                      onPressed: () {
+                        if (_speech.isListening) {
+                          _stopListeningForTitle();
+                        } else {
+                          _startListeningForTitle();
+                        }
+                      },
+                      child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
+                      backgroundColor:
+                          _speech.isListening ? Colors.red : Colors.blue,
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: 20,
+                ),
                 TextFormField(
                   onChanged: (value) {
                     newNote.title = value;
                   },
+                  initialValue: newNote.title,
                   decoration: InputDecoration(
                     labelText: 'Judul Catatan',
                   ),
                 ),
                 SizedBox(
                   height: 20,
-                ), // Hanya satu elemen SizedBox diperlukan di sini
+                ),
                 TextFormField(
                   controller: contentController,
-                  onChanged: (value) {
-                    // Do nothing here, as we'll update it with speech recognition result
-                  },
+                  onChanged: (value) {},
                   maxLines: 5,
                   decoration: InputDecoration(
                     labelText: 'Isi Catatan',
                   ),
                 ),
-                SizedBox(height: 20), // Tambahkan SizedBox untuk pemisahan
+                SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -276,8 +322,7 @@ class _NoteListState extends State<NoteList> {
               child: Text('Batal'),
             ),
             ElevatedButton(
-              onPressed:
-                  saveNote, // Panggil fungsi saveNote ketika tombol "Simpan" ditekan
+              onPressed: saveNote,
               child: Text('Simpan'),
             ),
           ],
@@ -294,7 +339,6 @@ class _NoteListState extends State<NoteList> {
       notesList.add(note.toMap());
     }
 
-    // Simpan list catatan sebagai string JSON ke Shared Preferences
     await sharedPreferences.setString('notes', jsonEncode(notesList));
   }
 
@@ -342,8 +386,7 @@ class _NoteListState extends State<NoteList> {
           if (titleController.text.isNotEmpty) {
             editedNote.title = titleController.text;
             editedNote.content = contentController.text;
-            editedNote.dateTime =
-                DateTime.now(); // Setel waktu saat catatan diedit
+            editedNote.dateTime = DateTime.now();
             setState(() {});
             Navigator.of(context).pop();
           } else {
@@ -430,6 +473,19 @@ class _NoteListState extends State<NoteList> {
       },
     );
   }
+
+  void _deleteNote(int index) async {
+    final sharedPreferences = await SharedPreferences.getInstance();
+    notes.removeAt(index);
+
+    final notesList = <Map<String, dynamic>>[];
+    for (final note in notes) {
+      notesList.add(note.toMap());
+    }
+    await sharedPreferences.setString('notes', jsonEncode(notesList));
+
+    setState(() {});
+  }
 }
 
 class Note {
@@ -443,7 +499,6 @@ class Note {
     required this.dateTime,
   });
 
-  // Tambahkan metode ini untuk mengkonversi objek Note menjadi Map
   Map<String, dynamic> toMap() {
     return {
       'title': title,
@@ -452,7 +507,6 @@ class Note {
     };
   }
 
-  // Tambahkan metode ini untuk membuat objek Note dari Map
   factory Note.fromMap(Map<String, dynamic> map) {
     return Note(
       title: map['title'],
