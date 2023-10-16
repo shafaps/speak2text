@@ -38,6 +38,7 @@ class NoteList extends StatefulWidget {
 class _NoteListState extends State<NoteList> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   String _recordedText = '';
+  String _recordedTitle = '';
   List<Note> notes = [];
 
   TextEditingController contentController = TextEditingController();
@@ -47,7 +48,7 @@ class _NoteListState extends State<NoteList> {
   DateTime _currentDateTime = DateTime.now();
 
   Note newNote = Note(
-    title: 'Judul Catatan',
+    title: 'judul catatan',
     content: '',
     dateTime: DateTime.now(),
   ); // Deklarasi variabel newNote
@@ -93,8 +94,9 @@ class _NoteListState extends State<NoteList> {
         _speech.listen(
           onResult: (result) {
             setState(() {
-              titleController.text = result
-                  .recognizedWords; // Isi judul dengan teks yang terdeteksi
+              _recordedTitle = result.recognizedWords;
+              titleController.text =
+                  _recordedTitle; // Isi judul dengan teks yang terdeteksi
             });
           },
         );
@@ -216,36 +218,18 @@ class _NoteListState extends State<NoteList> {
       context: context,
       builder: (context) {
         void saveNote() async {
-          if (newNote.title.isNotEmpty) {
-            newNote.content = _recordedText;
-            newNote.dateTime = DateTime.now();
-            setState(() {
-              notes.add(newNote);
-              _recordedText = '';
-              notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-            });
+          newNote.title =
+              _recordedTitle.isNotEmpty ? _recordedTitle : 'Judul Catatan';
+          newNote.content = _recordedText;
+          newNote.dateTime = DateTime.now();
+          setState(() {
+            notes.add(newNote);
+            _recordedText = '';
+            notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+          });
 
-            await saveNotesToLocal();
-            Navigator.of(context).pop();
-          } else {
-            showDialog(
-              context: context,
-              builder: (context) {
-                return AlertDialog(
-                  title: Text('Error'),
-                  content: Text('Judul Catatan tidak boleh kosong.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: Text('OK'),
-                    ),
-                  ],
-                );
-              },
-            );
-          }
+          await saveNotesToLocal();
+          Navigator.of(context).pop();
         }
 
         return AlertDialog(
@@ -258,7 +242,7 @@ class _NoteListState extends State<NoteList> {
                   onChanged: (value) {
                     newNote.title = value;
                   },
-                  controller: titleController, // Gunakan controller untuk judul
+                  controller: titleController,
                   decoration: InputDecoration(
                     labelText: 'Judul Catatan',
                   ),
@@ -301,7 +285,7 @@ class _NoteListState extends State<NoteList> {
                       },
                       child: Icon(
                         _speech.isListening ? Icons.stop : Icons.mic,
-                        color: Colors.green, // Ganti warna ikon menjadi hijau
+                        color: Colors.green,
                       ),
                       backgroundColor:
                           _speech.isListening ? Colors.red : Colors.blue,
