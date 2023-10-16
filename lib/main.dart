@@ -220,6 +220,12 @@ class _NoteListState extends State<NoteList> {
     showDialog(
       context: context,
       builder: (context) {
+        Note newNote = Note(
+          title: 'judul catatan',
+          content: '',
+          dateTime: DateTime.now(),
+        );
+
         void saveNote() async {
           newNote.title =
               _recordedTitle.isNotEmpty ? _recordedTitle : 'Judul Catatan';
@@ -227,7 +233,8 @@ class _NoteListState extends State<NoteList> {
           newNote.dateTime = DateTime.now();
           setState(() {
             notes.add(newNote);
-            _recordedText = '';
+            _recordedTitle = ' ';
+            _recordedText = ' ';
             notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
           });
 
@@ -298,6 +305,10 @@ class _NoteListState extends State<NoteList> {
           actions: [
             TextButton(
               onPressed: () {
+                setState(() {
+                  _recordedText = ''; // Reset nilai recordedText
+                  _recordedTitle = ''; // Reset nilai recordedTitle
+                });
                 Navigator.of(context).pop();
               },
               child: Text('Batal'),
@@ -441,6 +452,10 @@ class _NoteListState extends State<NoteList> {
           actions: [
             TextButton(
               onPressed: () {
+                setState(() {
+                  _recordedText = ''; // Reset nilai recordedText
+                  _recordedTitle = ''; // Reset nilai recordedTitle
+                });
                 Navigator.of(context).pop();
               },
               child: const Text('Batal'),
