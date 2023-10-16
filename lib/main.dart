@@ -151,11 +151,14 @@ class _NoteListState extends State<NoteList> {
           ),
         ),
       ),
-      body: ListView.builder(
-        itemCount: notes.length,
-        itemBuilder: (context, index) {
-          return _buildNoteItem(index);
-        },
+      body: Padding(
+        padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
+        child: ListView.builder(
+          itemCount: notes.length,
+          itemBuilder: (context, index) {
+            return _buildNoteItem(index);
+          },
+        ),
       ),
       floatingActionButton: Align(
         alignment: Alignment.bottomRight,
@@ -240,11 +243,24 @@ class _NoteListState extends State<NoteList> {
               children: [
                 TextFormField(
                   onChanged: (value) {
-                    newNote.title = value;
+                    newNote.title = _recordedTitle;
                   },
                   controller: titleController,
                   decoration: InputDecoration(
                     labelText: 'Judul Catatan',
+                    suffixIcon: IconButton(
+                      onPressed: () {
+                        if (_speech.isListening) {
+                          _stopListeningForTitle();
+                        } else {
+                          _startListeningForTitle();
+                        }
+                      },
+                      icon: Icon(
+                        _speech.isListening ? Icons.stop : Icons.mic,
+                        color: Colors.red,
+                      ),
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -271,22 +287,6 @@ class _NoteListState extends State<NoteList> {
                         }
                       },
                       child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
-                      backgroundColor:
-                          _speech.isListening ? Colors.red : Colors.blue,
-                    ),
-                    SizedBox(width: 16),
-                    FloatingActionButton(
-                      onPressed: () {
-                        if (_speech.isListening) {
-                          _stopListeningForTitle();
-                        } else {
-                          _startListeningForTitle();
-                        }
-                      },
-                      child: Icon(
-                        _speech.isListening ? Icons.stop : Icons.mic,
-                        color: Colors.green,
-                      ),
                       backgroundColor:
                           _speech.isListening ? Colors.red : Colors.blue,
                     ),
