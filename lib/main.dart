@@ -233,9 +233,8 @@ class _NoteListState extends State<NoteList> {
           newNote.dateTime = DateTime.now();
           setState(() {
             notes.add(newNote);
-            _recordedTitle = ' ';
-            _recordedText = ' ';
-            notes.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+            titleController.clear();
+            contentController.clear();
           });
 
           await saveNotesToLocal();
