@@ -62,6 +62,7 @@ class _NoteListState extends State<NoteList> {
 
     if (available) {
       setState(() {
+        _recordedText = '';
         _speech.listen(
           onResult: (result) {
             setState(() {
@@ -91,6 +92,7 @@ class _NoteListState extends State<NoteList> {
 
     if (available) {
       setState(() {
+        _recordedTitle = '';
         _speech.listen(
           onResult: (result) {
             setState(() {
