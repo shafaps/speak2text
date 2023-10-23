@@ -1,3 +1,3 @@
 # speak2text
 
-A new Flutter project.
+A new Flutter project for IPPL.
