@@ -21,6 +21,7 @@ cloud_firestore: ^4.9.3
 firebase_core: ^2.17.0
 shared_preferences: ^2.2.1
 google_speech_to_text: ^4.1.0
+timer_builder: ^2.0.0
 
 dev_dependencies:
   flutter_test:

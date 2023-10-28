@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -37,13 +38,12 @@ class NoteList extends StatefulWidget {
 
 class _NoteListState extends State<NoteList> {
   final stt.SpeechToText _speech = stt.SpeechToText();
-  String _recordedText = '';
-  String _recordedTitle = '';
+  String recordedText = '';
+  String recordedTitle = '';
   List<Note> notes = [];
 
   TextEditingController contentController = TextEditingController();
-  TextEditingController titleController =
-      TextEditingController(); // Tambahkan controller judul
+  TextEditingController titleController = TextEditingController();
 
   DateTime _currentDateTime = DateTime.now();
 
@@ -51,7 +51,7 @@ class _NoteListState extends State<NoteList> {
     title: 'judul catatan',
     content: '',
     dateTime: DateTime.now(),
-  ); // Deklarasi variabel newNote
+  );
 
   void _startListening() async {
     bool available = await _speech.initialize(
@@ -62,12 +62,12 @@ class _NoteListState extends State<NoteList> {
 
     if (available) {
       setState(() {
-        _recordedText = '';
+        recordedText = '';
         _speech.listen(
           onResult: (result) {
             setState(() {
-              _recordedText = result.recognizedWords;
-              contentController.text = _recordedText;
+              recordedText = result.recognizedWords;
+              contentController.text = recordedText;
             });
           },
         );
@@ -91,18 +91,14 @@ class _NoteListState extends State<NoteList> {
     );
 
     if (available) {
-      setState(() {
-        _recordedTitle = '';
-        _speech.listen(
-          onResult: (result) {
-            setState(() {
-              _recordedTitle = result.recognizedWords;
-              titleController.text =
-                  _recordedTitle; // Isi judul dengan teks yang terdeteksi
-            });
-          },
-        );
-      });
+      _speech.listen(
+        onResult: (result) {
+          setState(() {
+            recordedTitle = result.recognizedWords;
+            titleController.text = recordedTitle;
+          });
+        },
+      );
     } else {
       print('Permission denied or no available speech recognition modules.');
     }
@@ -219,109 +215,114 @@ class _NoteListState extends State<NoteList> {
   }
 
   void _addNote() {
+    bool isListening = false;
+    void saveNote() async {
+      Note newNote = Note(
+        title: recordedTitle.isNotEmpty ? recordedTitle : 'Judul Catatan',
+        content: recordedText.isNotEmpty ? recordedText : 'Isi Catatan',
+        dateTime: DateTime.now(),
+      );
+
+      setState(() {
+        notes.add(newNote);
+        titleController.clear();
+        contentController.clear();
+      });
+
+      await saveNotesToLocal();
+      _stopListening();
+      Navigator.of(context).pop();
+    }
+
     showDialog(
-      context: context,
-      builder: (context) {
-        Note newNote = Note(
-          title: 'judul catatan',
-          content: '',
-          dateTime: DateTime.now(),
-        );
-
-        void saveNote() async {
-          newNote.title =
-              _recordedTitle.isNotEmpty ? _recordedTitle : 'Judul Catatan';
-          newNote.content = _recordedText;
-          newNote.dateTime = DateTime.now();
-          setState(() {
-            notes.add(newNote);
-            titleController.clear();
-            contentController.clear();
-          });
-
-          await saveNotesToLocal();
-          Navigator.of(context).pop();
-        }
-
-        return AlertDialog(
-          title: Text('Tambah Catatan'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  onChanged: (value) {
-                    newNote.title = _recordedTitle;
-                  },
-                  controller: titleController,
-                  decoration: InputDecoration(
-                    labelText: 'Judul Catatan',
-                    suffixIcon: IconButton(
-                      onPressed: () {
-                        if (_speech.isListening) {
-                          _stopListeningForTitle();
-                        } else {
-                          _startListeningForTitle();
-                        }
-                      },
-                      icon: Icon(
-                        _speech.isListening ? Icons.stop : Icons.mic,
-                        color: Colors.red,
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (BuildContext context, setState) {
+              return AlertDialog(
+                title: Text('Tambah Catatan'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        onChanged: (value) {
+                          recordedTitle = value;
+                        },
+                        controller: titleController,
+                        decoration: InputDecoration(
+                          labelText: 'Judul Catatan',
+                          suffixIcon: IconButton(
+                            onPressed: () {
+                              if (_speech.isListening) {
+                                _stopListeningForTitle();
+                              } else {
+                                _startListeningForTitle();
+                              }
+                            },
+                            icon: Icon(
+                              _speech.isListening ? Icons.stop : Icons.mic,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      SizedBox(height: 10),
+                      TextFormField(
+                        onChanged: (value) {
+                          recordedText = value;
+                        },
+                        controller: contentController,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          labelText: 'Isi Catatan',
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FloatingActionButton(
+                            onPressed: () {
+                              if (_speech.isListening) {
+                                _stopListening();
+                                isListening = false;
+                              } else {
+                                _startListening();
+                                isListening = true;
+                              }
+                            },
+                            child: Icon(
+                                _speech.isListening ? Icons.stop : Icons.mic),
+                            backgroundColor:
+                                _speech.isListening ? Colors.red : Colors.blue,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(
-                  height: 20,
-                ),
-                TextFormField(
-                  controller: contentController,
-                  onChanged: (value) {},
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    labelText: 'Isi Catatan',
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        recordedTitle = ''; // Reset nilai recordedTitle
+                        recordedText = ''; // Reset nilai recordedText
+                        isListening = false;
+                      });
+                      Navigator.of(context).pop();
+                    },
+                    child: Text('Batal'),
                   ),
-                ),
-                SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FloatingActionButton(
-                      onPressed: () {
-                        if (_speech.isListening) {
-                          _stopListening();
-                        } else {
-                          _startListening();
-                        }
-                      },
-                      child: Icon(_speech.isListening ? Icons.stop : Icons.mic),
-                      backgroundColor:
-                          _speech.isListening ? Colors.red : Colors.blue,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _recordedText = ''; // Reset nilai recordedText
-                  _recordedTitle = ''; // Reset nilai recordedTitle
-                });
-                Navigator.of(context).pop();
-              },
-              child: Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: saveNote,
-              child: Text('Simpan'),
-            ),
-          ],
-        );
-      },
-    );
+                  ElevatedButton(
+                    onPressed: saveNote,
+                    child: Text('Simpan'),
+                  ),
+                ],
+              );
+            },
+          );
+        });
   }
 
   Future<void> saveNotesToLocal() async {
@@ -357,8 +358,8 @@ class _NoteListState extends State<NoteList> {
               _speech.listen(
                 onResult: (result) {
                   setState(() {
-                    _recordedText = result.recognizedWords;
-                    contentController.text = _recordedText;
+                    recordedText = result.recognizedWords;
+                    contentController.text = recordedText;
                   });
                 },
               );
@@ -454,8 +455,8 @@ class _NoteListState extends State<NoteList> {
             TextButton(
               onPressed: () {
                 setState(() {
-                  _recordedText = ''; // Reset nilai recordedText
-                  _recordedTitle = ''; // Reset nilai recordedTitle
+                  recordedText = ''; // Reset nilai recordedText
+                  recordedTitle = ''; // Reset nilai recordedTitle
                 });
                 Navigator.of(context).pop();
               },
