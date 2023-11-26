@@ -234,7 +234,7 @@ class _NoteListState extends State<NoteList> {
                             },
                             icon: Icon(
                               _speech.isListening ? Icons.stop : Icons.mic,
-                              color: Colors.red,
+                              color: Colors.blue,
                             ),
                           ),
                         ),
