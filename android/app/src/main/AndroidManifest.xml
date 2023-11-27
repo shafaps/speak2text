@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.apprelease.speak2text">
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
 <!-- Optional, you'll have to check this permission by yourself. -->
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -9,6 +10,7 @@
     <application
         android:label="speak2text"
         android:name="${applicationName}"
+        android:installLocation="auto"
         android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
